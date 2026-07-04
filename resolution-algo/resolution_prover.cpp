@@ -169,8 +169,7 @@ shared_ptr<Node> eliminate_imp_iff(shared_ptr<Node> n){
     if(n->t == AND || n->t == OR){
         auto L = eliminate_imp_iff(n->l);
         auto R = eliminate_imp_iff(n->r);
-        if(n->t == AND) return Node::And(L,R);
-        else return Node::Or(L,R);
+        return (n->t == AND)? Node::And(L,R) : Node::Or(L,R);
     }
     return n;
 }
@@ -273,8 +272,7 @@ vector<Clause> nodeToCNF(shared_ptr<Node> n){
         
         sort(out.begin(), out.end(), [](Clause const& a, Clause const& b){
             if(a.size()!=b.size()) return a.size()<b.size();
-            for(size_t i=0;i<a.size();++i) if(a[i].var!=b[i].var) return a[i].var<b[i].var;
-            for(size_t i=0;i<a.size();++i) if(a[i].neg!=b[i].neg) return a[i].neg < b[i].neg;
+            for(size_t i=0;i<a.size();++i) if(!(a[i] == b[i])) return a[i] < b[i];
             return false;
         });
         out.erase(unique(out.begin(), out.end()), out.end()); // remove duplicates
@@ -374,6 +372,9 @@ struct Deriv {
     Clause clause;
     bool is_initial;
     Parent parent; // valid if not initial
+
+    Deriv(Clause clause, bool is_initial, Parent parent):
+        clause(clause), is_initial(is_initial), parent(parent) {}
 };
 
 int main(){
@@ -439,13 +440,12 @@ int main(){
             Clause &C2 = all[j].clause;
 
             // try all pairs of literals one from C1 and one from C2 that are complementary
-            auto resolvents = Resolve(C1, C2);
-            for(auto &resolvent : resolvents){
+            for(auto &resolvent : Resolve(C1, C2)){
                 // check if we've seen it
                 string key = clause_to_string(resolvent);
                 if(seen.find(key) != seen.end()) continue;
                 // new clause
-                Deriv D; D.clause = resolvent; D.is_initial = false; D.parent = {j, head};
+                Deriv D = Deriv(resolvent, false, {j, head});
                 // push
                 int idx = all.size();
                 all.push_back(D);
